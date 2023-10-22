@@ -55,9 +55,9 @@ export default function Home() {
 	let wordList = useRef(Object.keys(dictionary));
 	const addedWords = useRef(new Set());
 
-	const addNode = (node: node) => {
+	const addNodes = (nodes: node[]) => {
 		setData((oldData) => {
-			const newNodes = [...oldData.nodes, node]
+			const newNodes = [...oldData.nodes, ...nodes]
 			console.log(`new node list: ${JSON.stringify(newNodes)}`)
 			return {
 				...oldData,
@@ -65,7 +65,7 @@ export default function Home() {
 			};
 		});
 	};
-	const addLink = (links: link[]) => {
+	const addLinks = (links: link[]) => {
 		setData((oldData) => {
 			const updatedNodes = oldData.nodes
 			const newLinks = [...oldData.links]
@@ -92,9 +92,11 @@ export default function Home() {
 		if (word === undefined){
 			return
 		}
+		const wordsToAdd: node[] = []
+		const linksToAdd: link[] = []
 		if (!addedWords.current.has(word.toLowerCase())) {
 			console.log(`adding ${word.toLowerCase()}`)
-			addNode(createWordNode(word.toLowerCase()))
+			wordsToAdd.push(createWordNode(word.toLowerCase()))
 			addedWords.current.add(word.toLowerCase())
 		}
 		const wordDescription = typedDict[word]
@@ -104,12 +106,14 @@ export default function Home() {
 		wordDescription.forEach((descriptionWord) => {
 			if (!addedWords.current.has(descriptionWord)) {
 				const newNode = createWordNode(descriptionWord);
-				addNode(newNode);
+				wordsToAdd.push(newNode)
 				addedWords.current.add(descriptionWord)
 			}
 			const newLinks = createLinks(word.toLowerCase(), [descriptionWord])
-			addLink(newLinks)
+			linksToAdd.push(...newLinks)
 		});
+		addNodes(wordsToAdd)
+		addLinks(linksToAdd)
 	};
 
 	return (
