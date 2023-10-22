@@ -4,93 +4,121 @@ import { randomInt } from "crypto";
 import { useState, useRef } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
+import dictionary from "./dictionary.json";
+
+type node = {
+	id: string;
+	name: string;
+	val: number;
+};
+
+type link = {
+	source: string;
+	target: string;
+};
+
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
 	ssr: false,
 });
 
-const createNode = (linkTo: string[], linkFrom: string[]) => {
-	let node = [];
+const typedDict = dictionary as { [word: string]: string };
+
+const createLinks = (id: string, linkTo?: string[], linkFrom?: string[]) => {
 	let links: { source: string; target: string }[] = [];
 
-	const number = Math.round(Math.random() * 1000).toString(10);
-
-	const id = "id".concat(number);
-	const name = "name".concat(number);
-	const val = Math.round(Math.random() * 10)
-
-	node.push({
-		id: id,
-		name: name,
-		val: val,
-	});
-	linkTo.forEach((targetId) =>
+	linkTo?.forEach((targetId) =>
 		links.push({
-			source: id,
-			target: targetId,
+			source: "id".concat(id),
+			target: "id".concat(targetId),
 		})
 	);
-	linkFrom.forEach((sourceId) =>
+	linkFrom?.forEach((sourceId) =>
 		links.push({
-			source: sourceId,
-			target: id,
+			source: "id".concat(sourceId),
+			target: "id".concat(id),
 		})
 	);
-	console.log(`node: ${JSON.stringify(node)}`)
-	console.log(`links: ${JSON.stringify(links)}`);
-
-
-	return { node, links };
+	return links;
 };
 
-const myData = {
-	nodes: [
-		{
-			id: "id1",
-			name: "name1",
-			val: 1,
-		},
-		{
-			id: "id2",
-			name: "name2",
-			val: 10,
-		},
-	],
-	links: [
-		{
-			source: "id1",
-			target: "id2",
-		},
-	],
+const createWordNode = (word: string) => {
+	return {
+		id: "id".concat(word),
+		name: word,
+		val: 1,
+	};
 };
 
 export default function Home() {
-	const [data, setData] = useState(myData);
-	let graphContainer = useRef<HTMLDivElement>(null)
+	const [data, setData] = useState<{nodes: node[], links: link[]}>({nodes: [], links: []});
+	let graphContainer = useRef<HTMLDivElement>(null);
+	let wordList = useRef(Object.keys(dictionary));
+	const addedWords = useRef(new Set());
 
-	const addNode = () => {
-		const linkTo: string[] = []
-		const linkFrom: string[] = []
-		data.nodes.forEach(node => {
-			if (Math.random() > 0.5){
-				return linkTo.push(node.id)
-			}
-			return linkFrom.push(node.id)
-		})
-		const { node, links } = createNode(linkTo, linkFrom);
+	const addNode = (node: node) => {
 		setData((oldData) => {
+			const newNodes = [...oldData.nodes, node]
+			console.log(`new node list: ${JSON.stringify(newNodes)}`)
 			return {
-				nodes: [...oldData.nodes, ...node],
-				links: [...oldData.links, ...links]
+				...oldData,
+				nodes: newNodes
 			};
 		});
-		console.log(data)
+	};
+	const addLink = (links: link[]) => {
+		setData((oldData) => {
+			const updatedNodes = oldData.nodes
+			const newLinks = [...oldData.links]
+			links.forEach(link => {
+				console.log(`trying to add link: ${JSON.stringify(link)}`)
+				const nodeIndex = updatedNodes.findIndex(node => node.id === link.target)
+				if (nodeIndex > -1){
+					updatedNodes[nodeIndex].val += 1
+					newLinks.push(link)
+				} else {
+					console.log(`Couldn't find ${link.target} node`)
+				}
+				return
+			})
+			console.log(`updatedNodes: ${JSON.stringify(updatedNodes)}`)
+			console.log(`links: ${JSON.stringify(newLinks)}`)
+			return {
+				nodes: [...updatedNodes],
+				links: [...newLinks],
+			};
+		});
+	};
+	const addWord = (word?: string) => {
+		if (word === undefined){
+			return
+		}
+		if (!addedWords.current.has(word.toLowerCase())) {
+			console.log(`adding ${word.toLowerCase()}`)
+			addNode(createWordNode(word.toLowerCase()))
+			addedWords.current.add(word.toLowerCase())
+		}
+		const wordDescription = typedDict[word]
+			.replaceAll(/[^a-zA-Z ]+/g, "")
+			.toLowerCase()
+			.split(" ");
+		wordDescription.forEach((descriptionWord) => {
+			if (!addedWords.current.has(descriptionWord)) {
+				const newNode = createWordNode(descriptionWord);
+				addNode(newNode);
+				addedWords.current.add(descriptionWord)
+			}
+			const newLinks = createLinks(word.toLowerCase(), [descriptionWord])
+			addLink(newLinks)
+		});
 	};
 
 	return (
 		<div className="flex flex-col max-h-screen max-w-screen outline h-screen w-screen">
 			<div className="flex flex-col items-center justify-center h-full max-h-full">
 				<div className="flex-none max-h-full">
-					<button className="bg-blue-500 px-4 py-2" onClick={addNode}>Click Me!</button>
+					<button className="bg-blue-500 px-4 py-2" onClick={() => addWord(wordList.current.pop())}>
+						Click Me!
+					</button>
 				</div>
 				<div
 					className="grow basis-0 flex-col w-full max-w-full min-h-0 max-h-full"
